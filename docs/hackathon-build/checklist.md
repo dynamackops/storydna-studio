@@ -69,9 +69,16 @@
 - [x] Include action, camera, subject, environment, expression, duration, negatives, transition, and model category.
 - [x] Preserve motion plans by stable scene ID without sending uploaded pixels to the planning API.
 
+## Milestone 9 — Production estimate
+
+- [x] Calculate finished runtime and minimum, expected, and high-retry generation ranges.
+- [x] Add configurable platform label and attempts-per-scene assumption.
+- [x] Derive explainable per-shot difficulty and flag likely difficult scenes.
+- [x] Keep credit estimates hidden until a sample rate is configured.
+- [x] Display an explicit estimate and no-current-pricing disclaimer.
+
 ## Later milestones
 
-- [ ] Configurable production estimates with clear disclaimer.
 - [ ] Supabase Auth/Postgres/Storage and verified RLS policies.
 - [ ] Finished-video Director's Commentary modes.
 - [ ] Export and deployment hardening.

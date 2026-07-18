@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { storyInputSchema, type StoryInputValues } from "../shared/schemas";
 import { requestAnalysis, requestCreativeBrief, requestImagePrompts, requestMotionPrompt, requestQuestions, requestRegeneratedImagePrompt, requestRegeneratedScene, requestSceneOutline } from "./lib/api";
+import { calculateProductionEstimate } from "./lib/estimate";
 import { useProjectStore } from "./store/projectStore";
 
 const stages = ["Story", "DNA", "Scenes", "Images", "Motion", "Review"];
@@ -551,7 +552,51 @@ function MotionWorkspace({ onGenerateMotion }: { onGenerateMotion: (sceneId: str
         })}
       </div>
       {store.error && <div className="error-banner scene-error" role="alert"><strong>The motion director paused.</strong> {store.error}</div>}
-      <div className="outline-approval motion-next"><div><span>Coming next</span><h3>Estimate the production effort</h3><p>Turn scene duration and shot difficulty into transparent generation ranges.</p></div><button className="primary-button" disabled>Build production estimate <Arrow /></button></div>
+      <div className="outline-approval motion-next"><div><span>Next</span><h3>Estimate the production effort</h3><p>Turn scene duration and shot difficulty into transparent generation ranges.</p></div><button className="primary-button" onClick={store.openEstimateWorkspace}>Build production estimate <Arrow /></button></div>
+    </section>
+  );
+}
+
+function EstimateWorkspace() {
+  const store = useProjectStore();
+  const estimate = useMemo(
+    () => calculateProductionEstimate(store.scenes, store.motionPlans, store.estimateConfig),
+    [store.scenes, store.motionPlans, store.estimateConfig],
+  );
+  const formatCredits = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(1);
+
+  return (
+    <section className="estimate-workspace">
+      <div className="estimate-hero">
+        <div><button className="back-stage-button" onClick={store.closeEstimateWorkspace}>← Back to motion plans</button><p className="eyebrow"><span>08</span> Production estimate</p><h1>Know the effort before you render.</h1><p>A transparent planning range based on your approved scenes, clip durations, expected attempts, and likely shot difficulty.</p></div>
+        <div className="estimate-runtime"><strong>{estimate.finishedRuntimeSeconds}s</strong><span>Estimated finished<br />runtime</span></div>
+      </div>
+
+      <div className="estimate-config">
+        <div><span>Estimate configuration</span><p>Adjust these assumptions to match your workflow. They are saved locally.</p></div>
+        <label><span>Generation platform</span><select value={store.estimateConfig.platformLabel} onChange={(event) => store.updateEstimateConfig("platformLabel", event.target.value)}><option>Mixed / not selected</option><option>Kling</option><option>Runway</option><option>Veo</option><option>Higgsfield</option><option>Other configured platform</option></select></label>
+        <label><span>Expected attempts per scene</span><input type="number" min="1" max="12" value={store.estimateConfig.attemptsPerScene} onChange={(event) => store.updateEstimateConfig("attemptsPerScene", Math.max(1, Math.min(12, Number(event.target.value))))} /></label>
+        <label><span>Sample credits per generation</span><input type="number" min="0" step="0.1" value={store.estimateConfig.sampleCreditsPerGeneration ?? ""} onChange={(event) => store.updateEstimateConfig("sampleCreditsPerGeneration", event.target.value === "" ? undefined : Math.max(0, Number(event.target.value)))} placeholder="Optional" /><small>Leave blank until you configure a sample rate.</small></label>
+      </div>
+
+      <div className="estimate-range" aria-label="Generation estimate range">
+        <article><span>Minimum likely</span><strong>{estimate.minimumLikelyGenerations}</strong><p>One usable generation per approved scene.</p></article>
+        <article className="expected"><span>Expected</span><strong>{estimate.expectedGenerations}</strong><p>Your attempt setting adjusted by shot difficulty.</p></article>
+        <article><span>High-retry</span><strong>{estimate.highRetryEstimate}</strong><p>Extra retries for difficult motion and continuity.</p></article>
+      </div>
+
+      {estimate.estimatedCredits ? <div className="credit-estimate"><div><span>Configured sample credit range</span><strong>{formatCredits(estimate.estimatedCredits.minimum)}–{formatCredits(estimate.estimatedCredits.highRetry)} credits</strong></div><p>Expected: {formatCredits(estimate.estimatedCredits.expected)} · {estimate.estimatedCredits.configurationLabel}</p></div> : <div className="credit-empty"><span>Credits not configured</span><p>Add a sample credits-per-generation value above to calculate a planning range. No current provider pricing is hardcoded.</p></div>}
+
+      <div className="shot-estimates">
+        <div className="shot-estimates-heading"><div><span>Shot-by-shot risk</span><h2>Where retries are most likely</h2></div><p>{estimate.difficultSceneIds.length ? `${estimate.difficultSceneIds.length} shot${estimate.difficultSceneIds.length === 1 ? "" : "s"} marked difficult` : "No shots currently marked high difficulty"}</p></div>
+        {estimate.shots.map((shot) => {
+          const scene = store.scenes.find((item) => item.id === shot.sceneId);
+          return <article className="shot-estimate-row" key={shot.sceneId}><div className="shot-estimate-id"><span>{String(scene?.position || 0).padStart(2, "0")}</span><div><strong>{scene?.storyBeat}</strong><small>{shot.sceneId}</small></div></div><span className={`difficulty difficulty-${shot.difficulty}`}>{shot.difficulty}</span><p>{shot.difficultyReason}</p><div className="shot-generation-range"><span>Expected</span><strong>{shot.expectedGenerations}</strong><small>High {shot.highRetryGenerations}</small></div></article>;
+        })}
+      </div>
+
+      <div className="estimate-disclaimer"><span>Planning estimate</span><p>{estimate.disclaimer}</p></div>
+      <div className="outline-approval estimate-next"><div><span>Core production plan complete</span><h3>Your story is ready for the demo reel.</h3><p>Next: export the plan, deploy the app, and add finished-clip commentary if time allows.</p></div><button className="primary-button" disabled>Export production plan <Arrow /></button></div>
     </section>
   );
 }
@@ -562,9 +607,10 @@ function DNAWorkspace({ onRegenerate, onBuildBrief, onBuildScenes, onRegenerateS
   const imagePrompts = useProjectStore((state) => state.imagePrompts);
   const motionPlans = useProjectStore((state) => state.motionPlans);
   const motionWorkspaceOpen = useProjectStore((state) => state.motionWorkspaceOpen);
+  const estimateWorkspaceOpen = useProjectStore((state) => state.estimateWorkspaceOpen);
   return (
     <main className="dna-shell">
-      {motionWorkspaceOpen ? <MotionWorkspace onGenerateMotion={onGenerateMotion} /> : imagePrompts.length ? <ImagesWorkspace onRegeneratePrompt={onRegeneratePrompt} onOpenMotion={useProjectStore.getState().openMotionWorkspace} /> : scenes.length ? <ScenesWorkspace onRegenerateScene={onRegenerateScene} onGeneratePrompts={onGeneratePrompts} /> : brief ? <CreativeBriefView onBuildScenes={onBuildScenes} /> : <><AnalysisHeader /><AnalysisView /><QuestionsView onRegenerate={onRegenerate} onBuildBrief={onBuildBrief} /></>}
+      {estimateWorkspaceOpen ? <EstimateWorkspace /> : motionWorkspaceOpen ? <MotionWorkspace onGenerateMotion={onGenerateMotion} /> : imagePrompts.length ? <ImagesWorkspace onRegeneratePrompt={onRegeneratePrompt} onOpenMotion={useProjectStore.getState().openMotionWorkspace} /> : scenes.length ? <ScenesWorkspace onRegenerateScene={onRegenerateScene} onGeneratePrompts={onGeneratePrompts} /> : brief ? <CreativeBriefView onBuildScenes={onBuildScenes} /> : <><AnalysisHeader /><AnalysisView /><QuestionsView onRegenerate={onRegenerate} onBuildBrief={onBuildBrief} /></>}
     </main>
   );
 }
@@ -572,7 +618,7 @@ function DNAWorkspace({ onRegenerate, onBuildBrief, onBuildScenes, onRegenerateS
 export default function App() {
   const store = useProjectStore();
   const hasAnalysis = Boolean(store.analysis);
-  const activeStage = store.motionWorkspaceOpen ? 4 : store.imagePrompts.length ? 3 : store.scenes.length ? 2 : hasAnalysis ? 1 : 0;
+  const activeStage = store.estimateWorkspaceOpen ? 5 : store.motionWorkspaceOpen ? 4 : store.imagePrompts.length ? 3 : store.scenes.length ? 2 : hasAnalysis ? 1 : 0;
   const loading = store.status === "analyzing" || store.status === "questioning" || store.status === "briefing" || store.status === "scenes" || store.status === "images" || store.status === "motion";
   const loadingPhase = useMemo(() => store.status === "motion" ? "Directing movement without losing the frame." : store.status === "images" ? "Composing the frame language." : store.status === "scenes" ? "Finding the visual rhythm." : store.status === "briefing" ? "Distilling the north star." : store.status === "questioning" ? "Finding the creative forks." : "Reading beneath the words.", [store.status]);
 

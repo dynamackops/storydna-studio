@@ -214,3 +214,38 @@ Running log for product decisions, scope cuts, bugs, verification, and submissio
 - Extended StoryDNA's protected-decision chain through motion, so emotional intent becomes concrete camera, performance, environment, and transition direction.
 - Made the privacy boundary honest and visible: local image reference versus text context sent for planning.
 - Added model-agnostic negative motion guidance focused on common AI-video failure modes such as identity drift, morphing, flicker, and uncontrolled camera movement.
+
+## 2026-07-18 — Production estimate milestone
+
+### Decisions made
+
+- Implemented production estimating as a deterministic calculator rather than another model operation, making every total explainable and immediately responsive to configuration changes.
+- Added persisted assumptions for platform label, expected attempts per scene, and optional sample credits per generation.
+- Kept credit totals completely hidden until the creator configures a sample rate; no provider pricing is hardcoded or presented as current.
+- Classified shots as low, medium, or high difficulty from visible signals: complex visual elements, continuity-sensitive anatomy/faces, coordinated motion, and longer clip duration.
+- Exposed the reason for every difficulty label and calculated per-shot expected/high-retry generations.
+- Added a return path to motion plans without losing estimate configuration.
+
+### Features cut
+
+- No live provider pricing lookup or exact credit claims.
+- No AI-generated difficulty score; deterministic heuristics are easier to inspect and defend in a hackathon demo.
+- Export remains the next product milestone.
+
+### Verification results
+
+- TypeScript typecheck: passed.
+- Focused tests: 14 passed across 3 files.
+- Production build: passed.
+- Live estimate for eight approved scenes: 64-second runtime, 8 minimum generations, and configuration-sensitive expected/high-retry ranges.
+- Changing expected attempts from 3 to 4 recalculated totals from 31/54 to 39/62 immediately.
+- Configuring a five-credit sample rate produced a clearly labeled 40–310 sample range; removing the rate hides all credit totals.
+- Platform, attempts, credit rate, and totals survived refresh.
+- Mobile 390×844 check: no horizontal overflow; estimate configuration and ranges collapse to one column; shot rows remain readable.
+- Browser console: no warnings or errors.
+
+### Codex contributions useful for Devpost
+
+- Turned production uncertainty into a defensible planning range instead of false precision.
+- Made difficult AI-video shots visible before generation, helping solo filmmakers budget retries where continuity and coordinated motion are most fragile.
+- Preserved trust by separating user-configured sample credits from live provider pricing claims.

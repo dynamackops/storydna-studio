@@ -99,6 +99,12 @@ Output: one scene-linked motion plan containing intended action, camera/subject/
 
 Uploaded image bytes remain in browser memory for preview only in the MVP and are not sent to this text-planning operation.
 
+## Production estimate calculation
+
+The estimate is a deterministic client-side calculation rather than an AI claim. Inputs are the approved scenes, available motion plans, configured platform label, expected attempts per scene, and an optional sample credits-per-generation rate.
+
+Each shot receives a low, medium, or high risk classification with a visible reason based on continuity-sensitive anatomy, complex visual elements, coordinated motion, and clip duration. The calculator returns minimum, expected, and high-retry generation totals. Credit totals do not render until the creator explicitly supplies a sample rate, and every view states that no current provider pricing is implied.
+
 ## AI operation rules
 
 Each operation has its own system instruction, user payload, Zod schema, and error boundary. Prompts label data blocks by provenance. The model is instructed to avoid production planning during analysis and to ask questions only about unresolved, high-impact forks.

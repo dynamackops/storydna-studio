@@ -222,6 +222,42 @@ export const motionPromptResponseSchema = z.object({
   meta: operationMetaSchema,
 });
 
+export const shotDifficultySchema = z.enum(["low", "medium", "high"]);
+
+export const estimateConfigSchema = z.object({
+  platformLabel: z.string().trim().min(1).max(120),
+  attemptsPerScene: z.number().int().min(1).max(12),
+  sampleCreditsPerGeneration: z.number().min(0).max(100_000).optional(),
+  creditConfigurationLabel: z.string().trim().max(160).default("Sample configuration"),
+});
+
+export const shotEstimateSchema = z.object({
+  sceneId: z.string().min(1),
+  difficulty: shotDifficultySchema,
+  difficultyReason: z.string().min(1),
+  minimumGenerations: z.number().int().min(1),
+  expectedGenerations: z.number().int().min(1),
+  highRetryGenerations: z.number().int().min(1),
+});
+
+export const productionEstimateSchema = z.object({
+  platformLabel: z.string().min(1),
+  finishedRuntimeSeconds: z.number().int().min(1),
+  minimumLikelyGenerations: z.number().int().min(1),
+  expectedGenerations: z.number().int().min(1),
+  highRetryEstimate: z.number().int().min(1),
+  estimatedCredits: z.object({
+    minimum: z.number().min(0),
+    expected: z.number().min(0),
+    highRetry: z.number().min(0),
+    configurationLabel: z.string().min(1),
+  }).optional(),
+  difficultSceneIds: z.array(z.string().min(1)),
+  shots: z.array(shotEstimateSchema).min(1).max(30),
+  disclaimer: z.string().min(1),
+  generatedAt: z.string().min(1),
+});
+
 export type StoryInputValues = z.infer<typeof storyInputSchema>;
 export type StoryAnalysisValues = z.infer<typeof storyAnalysisSchema>;
 export type ClarifyingQuestionValues = z.infer<typeof clarifyingQuestionSchema>;
@@ -229,3 +265,5 @@ export type CreativeBriefValues = z.infer<typeof creativeBriefSchema>;
 export type SceneValues = z.infer<typeof sceneSchema>;
 export type ImagePromptValues = z.infer<typeof imagePromptSchema>;
 export type MotionPlanValues = z.infer<typeof motionPlanSchema>;
+export type EstimateConfigValues = z.infer<typeof estimateConfigSchema>;
+export type ProductionEstimateValues = z.infer<typeof productionEstimateSchema>;

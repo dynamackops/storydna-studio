@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import type {
   ClarifyingQuestionValues,
   CreativeBriefValues,
+  EstimateConfigValues,
   ImagePromptValues,
   MotionPlanValues,
   StoryAnalysisValues,
@@ -39,6 +40,12 @@ export const demoStory: StoryInputValues = {
   aspectRatio: "16:9",
   targetRuntimeSeconds: 60,
   preferredTools: "Midjourney, Kling, CapCut",
+};
+
+const defaultEstimateConfig: EstimateConfigValues = {
+  platformLabel: "Mixed / not selected",
+  attemptsPerScene: 3,
+  creditConfigurationLabel: "Sample configuration—not current pricing",
 };
 
 function motionDraft(scene: SceneValues): MotionPlanValues {
@@ -86,6 +93,8 @@ interface ProjectState {
   motionNotes: Record<string, string>;
   motionImageNames: Record<string, string>;
   regeneratingMotionSceneId?: string;
+  estimateWorkspaceOpen: boolean;
+  estimateConfig: EstimateConfigValues;
   status: WorkflowStatus;
   statusMessage: string;
   error?: string;
@@ -128,6 +137,9 @@ interface ProjectState {
   beginMotionGeneration: (sceneId: string) => void;
   setMotionPlan: (plan: MotionPlanValues, meta: OperationMeta) => void;
   updateMotionPlan: <K extends keyof MotionPlanValues>(sceneId: string, key: K, value: MotionPlanValues[K]) => void;
+  openEstimateWorkspace: () => void;
+  closeEstimateWorkspace: () => void;
+  updateEstimateConfig: <K extends keyof EstimateConfigValues>(key: K, value: EstimateConfigValues[K]) => void;
   fail: (message: string) => void;
   startOver: () => void;
 }
@@ -151,6 +163,8 @@ export const useProjectStore = create<ProjectState>()(
       motionWorkspaceOpen: false,
       motionNotes: {},
       motionImageNames: {},
+      estimateWorkspaceOpen: false,
+      estimateConfig: defaultEstimateConfig,
       status: "idle",
       statusMessage: "",
       updateDraft: (key, value) =>
@@ -172,6 +186,7 @@ export const useProjectStore = create<ProjectState>()(
           motionWorkspaceOpen: false,
           motionNotes: {},
           motionImageNames: {},
+          estimateWorkspaceOpen: false,
         })),
       loadDemoStory: () =>
         set({
@@ -192,6 +207,7 @@ export const useProjectStore = create<ProjectState>()(
           motionWorkspaceOpen: false,
           motionNotes: {},
           motionImageNames: {},
+          estimateWorkspaceOpen: false,
         }),
       beginAnalysis: () =>
         set({
@@ -263,6 +279,7 @@ export const useProjectStore = create<ProjectState>()(
           motionWorkspaceOpen: false,
           motionNotes: {},
           motionImageNames: {},
+          estimateWorkspaceOpen: false,
           meta,
           status: "ready",
           statusMessage: "",
@@ -336,6 +353,7 @@ export const useProjectStore = create<ProjectState>()(
           motionWorkspaceOpen: false,
           motionNotes: {},
           motionImageNames: {},
+          estimateWorkspaceOpen: false,
           meta,
           status: "ready",
           statusMessage: "",
@@ -362,6 +380,7 @@ export const useProjectStore = create<ProjectState>()(
         set((state) => ({
           motionPlans: state.motionPlans.length ? state.motionPlans : state.scenes.map(motionDraft),
           motionWorkspaceOpen: true,
+          estimateWorkspaceOpen: false,
           status: "ready",
           error: undefined,
         })),
@@ -387,6 +406,10 @@ export const useProjectStore = create<ProjectState>()(
         set((state) => ({
           motionPlans: state.motionPlans.map((plan) => plan.sceneId === sceneId ? { ...plan, [key]: value } : plan),
         })),
+      openEstimateWorkspace: () => set({ estimateWorkspaceOpen: true, motionWorkspaceOpen: false, status: "ready", error: undefined }),
+      closeEstimateWorkspace: () => set({ estimateWorkspaceOpen: false, motionWorkspaceOpen: true, status: "ready", error: undefined }),
+      updateEstimateConfig: (key, value) =>
+        set((state) => ({ estimateConfig: { ...state.estimateConfig, [key]: value } })),
       fail: (error) => set({ status: "error", statusMessage: "", error, regeneratingSceneId: undefined, regeneratingPromptSceneId: undefined, regeneratingMotionSceneId: undefined }),
       startOver: () =>
         set({
@@ -411,6 +434,8 @@ export const useProjectStore = create<ProjectState>()(
           motionNotes: {},
           motionImageNames: {},
           regeneratingMotionSceneId: undefined,
+          estimateWorkspaceOpen: false,
+          estimateConfig: defaultEstimateConfig,
           status: "idle",
           statusMessage: "",
           error: undefined,
@@ -440,6 +465,8 @@ export const useProjectStore = create<ProjectState>()(
         motionWorkspaceOpen: state.motionWorkspaceOpen,
         motionNotes: state.motionNotes,
         motionImageNames: state.motionImageNames,
+        estimateWorkspaceOpen: state.estimateWorkspaceOpen,
+        estimateConfig: state.estimateConfig,
       }),
     },
   ),

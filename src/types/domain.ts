@@ -62,13 +62,23 @@ export interface MotionPlan {
 }
 
 export interface ProductionEstimate {
+  platformLabel: string;
   finishedRuntimeSeconds: number;
-  minimumGenerations: number;
+  minimumLikelyGenerations: number;
   expectedGenerations: number;
-  highRetryGenerations: number;
-  estimatedCredits?: { min: number; max: number; configurationLabel: string };
+  highRetryEstimate: number;
+  estimatedCredits?: { minimum: number; expected: number; highRetry: number; configurationLabel: string };
   difficultSceneIds: string[];
+  shots: Array<{
+    sceneId: string;
+    difficulty: "low" | "medium" | "high";
+    difficultyReason: string;
+    minimumGenerations: number;
+    expectedGenerations: number;
+    highRetryGenerations: number;
+  }>;
   disclaimer: string;
+  generatedAt: string;
 }
 
 export interface CommentaryReport {
