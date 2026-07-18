@@ -64,6 +64,29 @@ export const questionsRequestSchema = z.object({
   variationSeed: z.number().int().nonnegative().default(0),
 });
 
+export const creativeBriefSchema = z.object({
+  creativeIntention: z.string().min(1),
+  emotionalDestination: z.string().min(1),
+  visualIdentity: z.string().min(1),
+  characterDirection: z.string().min(1),
+  storytellingConstraints: z.array(z.string().min(1)).min(1).max(8),
+  consistencyRequirements: z.array(z.string().min(1)).min(1).max(8),
+});
+
+export const creativeBriefRequestSchema = z.object({
+  input: storyInputSchema,
+  analysis: storyAnalysisSchema,
+  questions: z.array(clarifyingQuestionSchema).length(3),
+  answers: z.array(
+    z.object({
+      questionId: z.string().min(1),
+      answer: z.string().trim().min(1),
+    }),
+  ).length(3),
+  userCorrection: z.string().trim().max(2_000).default(""),
+  extraContext: z.string().trim().max(2_000).default(""),
+});
+
 export const operationMetaSchema = z.object({
   demoMode: z.boolean(),
   model: z.string(),
@@ -80,7 +103,56 @@ export const questionsResponseSchema = z.object({
   meta: operationMetaSchema,
 });
 
+export const creativeBriefResponseSchema = z.object({
+  data: creativeBriefSchema,
+  meta: operationMetaSchema,
+});
+
+export const sceneSchema = z.object({
+  id: z.string().min(1),
+  position: z.number().int().min(1),
+  storyBeat: z.string().min(1),
+  sourceReference: z.string().min(1),
+  narrativePurpose: z.string().min(1),
+  emotionalIntention: z.string().min(1),
+  visualDescription: z.string().min(1),
+  shotType: z.string().min(1),
+  durationSeconds: z.number().int().min(1).max(60),
+  transitionIdea: z.string().min(1),
+});
+
+export const sceneOutlineSchema = z.object({
+  scenes: z.array(sceneSchema).min(2).max(30),
+});
+
+export const sceneOutlineRequestSchema = z.object({
+  input: storyInputSchema,
+  analysis: storyAnalysisSchema,
+  brief: creativeBriefSchema,
+});
+
+export const regenerateSceneRequestSchema = z.object({
+  input: storyInputSchema,
+  analysis: storyAnalysisSchema,
+  brief: creativeBriefSchema,
+  scene: sceneSchema,
+  previousScene: sceneSchema.optional(),
+  nextScene: sceneSchema.optional(),
+  creatorNote: z.string().trim().max(1_000).default(""),
+});
+
+export const sceneOutlineResponseSchema = z.object({
+  data: sceneOutlineSchema,
+  meta: operationMetaSchema,
+});
+
+export const sceneResponseSchema = z.object({
+  data: sceneSchema,
+  meta: operationMetaSchema,
+});
+
 export type StoryInputValues = z.infer<typeof storyInputSchema>;
 export type StoryAnalysisValues = z.infer<typeof storyAnalysisSchema>;
 export type ClarifyingQuestionValues = z.infer<typeof clarifyingQuestionSchema>;
-
+export type CreativeBriefValues = z.infer<typeof creativeBriefSchema>;
+export type SceneValues = z.infer<typeof sceneSchema>;

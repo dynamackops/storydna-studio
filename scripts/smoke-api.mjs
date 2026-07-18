@@ -22,8 +22,8 @@ async function post(path, body) {
 }
 
 const analysis = await post("/api/story/analyze", input);
-if (!analysis.data.coreEmotionalTruth || analysis.meta.demoMode !== true) {
-  throw new Error("Analysis response did not include expected demo data.");
+if (!analysis.data.coreEmotionalTruth) {
+  throw new Error("Analysis response did not include expected StoryDNA data.");
 }
 
 const questions = await post("/api/story/questions", {
@@ -37,6 +37,43 @@ if (questions.data.questions.length !== 3) {
   throw new Error(`Expected exactly 3 questions, received ${questions.data.questions.length}.`);
 }
 
+const answers = questions.data.questions.map((question, index) => ({
+  questionId: question.id,
+  answer: index === 0 ? "A beautiful ache" : question.options[0],
+}));
+const brief = await post("/api/story/brief", {
+  input,
+  analysis: analysis.data,
+  questions: questions.data.questions,
+  answers,
+  userCorrection: "The house represents the future she was afraid to choose.",
+  extraContext: "Keep the rusted key as a continuity anchor.",
+});
+if (!brief.data.creativeIntention || brief.data.storytellingConstraints.length === 0) {
+  throw new Error("Creative brief response did not include required production direction.");
+}
+
+const outline = await post("/api/story/scenes", {
+  input,
+  analysis: analysis.data,
+  brief: brief.data,
+});
+if (outline.data.scenes.length < 2 || new Set(outline.data.scenes.map((scene) => scene.id)).size !== outline.data.scenes.length) {
+  throw new Error("Scene outline did not include at least two unique stable ids.");
+}
+const targetScene = outline.data.scenes[0];
+const regenerated = await post("/api/story/scene/regenerate", {
+  input,
+  analysis: analysis.data,
+  brief: brief.data,
+  scene: targetScene,
+  nextScene: outline.data.scenes[1],
+  creatorNote: "Increase foreground depth.",
+});
+if (regenerated.data.id !== targetScene.id || regenerated.data.position !== targetScene.position) {
+  throw new Error("Isolated regeneration changed the stable scene identity.");
+}
+
 const invalid = await fetch(`${base}/api/story/analyze`, {
   method: "POST",
   headers: { "content-type": "application/json" },
@@ -47,7 +84,9 @@ if (invalid.status !== 400) throw new Error(`Expected invalid input to return 40
 console.log(JSON.stringify({
   analysis: "valid",
   questions: questions.data.questions.length,
+  creativeBrief: "valid",
+  scenes: outline.data.scenes.length,
+  stableRegeneration: regenerated.data.id,
   invalidInputStatus: invalid.status,
   mode: analysis.meta.demoMode ? "guided-demo" : "openai",
 }, null, 2));
-

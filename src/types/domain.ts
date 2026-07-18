@@ -1,5 +1,6 @@
 import type {
   ClarifyingQuestionValues,
+  CreativeBriefValues,
   StoryAnalysisValues,
   StoryInputValues,
 } from "../../shared/schemas";
@@ -16,13 +17,7 @@ export interface ClarifyingAnswer {
   answer: string;
 }
 
-export interface CreativeBrief {
-  creativeIntention: string;
-  emotionalDestination: string;
-  visualIdentity: string;
-  characterDirection: string;
-  storytellingConstraints: string[];
-  consistencyRequirements: string[];
+export interface CreativeBrief extends CreativeBriefValues {
   approval: ApprovalState;
   approvedAt?: string;
 }
@@ -103,4 +98,3 @@ export interface Project {
   productionEstimate?: ProductionEstimate;
   commentaryReports: CommentaryReport[];
 }
-

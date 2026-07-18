@@ -2,11 +2,18 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   ClarifyingQuestionValues,
+  CreativeBriefValues,
   StoryAnalysisValues,
   StoryInputValues,
+  SceneValues,
 } from "../../shared/schemas";
 
-export type WorkflowStatus = "idle" | "analyzing" | "questioning" | "ready" | "error";
+export type WorkflowStatus = "idle" | "analyzing" | "questioning" | "briefing" | "scenes" | "ready" | "error";
+
+export interface PersistedCreativeBrief extends CreativeBriefValues {
+  approval: "ready" | "approved";
+  approvedAt?: string;
+}
 
 export const blankStory: StoryInputValues = {
   title: "",
@@ -46,6 +53,12 @@ interface ProjectState {
   userCorrection: string;
   extraContext: string;
   variationSeed: number;
+  brief?: PersistedCreativeBrief;
+  scenes: SceneValues[];
+  sceneApproval: "draft" | "ready" | "approved";
+  scenesApprovedAt?: string;
+  sceneNotes: Record<string, string>;
+  regeneratingSceneId?: string;
   status: WorkflowStatus;
   statusMessage: string;
   error?: string;
@@ -60,6 +73,21 @@ interface ProjectState {
   setUserCorrection: (value: string) => void;
   setExtraContext: (value: string) => void;
   nextVariation: () => number;
+  beginBrief: () => void;
+  setBrief: (brief: CreativeBriefValues, meta: OperationMeta) => void;
+  updateBriefField: <K extends keyof CreativeBriefValues>(key: K, value: CreativeBriefValues[K]) => void;
+  approveBrief: () => void;
+  returnToQuestions: () => void;
+  beginScenes: () => void;
+  setScenes: (scenes: SceneValues[], meta: OperationMeta) => void;
+  updateScene: <K extends keyof SceneValues>(id: string, key: K, value: SceneValues[K]) => void;
+  addScene: () => void;
+  deleteScene: (id: string) => void;
+  moveScene: (id: string, direction: -1 | 1) => void;
+  setSceneNote: (id: string, note: string) => void;
+  beginSceneRegeneration: (id: string) => void;
+  replaceScene: (scene: SceneValues, meta: OperationMeta) => void;
+  approveScenes: () => void;
   fail: (message: string) => void;
   startOver: () => void;
 }
@@ -73,6 +101,10 @@ export const useProjectStore = create<ProjectState>()(
       userCorrection: "",
       extraContext: "",
       variationSeed: 0,
+      brief: undefined,
+      scenes: [],
+      sceneApproval: "draft",
+      sceneNotes: {},
       status: "idle",
       statusMessage: "",
       updateDraft: (key, value) =>
@@ -84,6 +116,10 @@ export const useProjectStore = create<ProjectState>()(
           status: "idle",
           error: undefined,
           meta: undefined,
+          brief: undefined,
+          scenes: [],
+          sceneApproval: "draft",
+          sceneNotes: {},
         })),
       loadDemoStory: () =>
         set({
@@ -94,6 +130,10 @@ export const useProjectStore = create<ProjectState>()(
           status: "idle",
           error: undefined,
           meta: undefined,
+          brief: undefined,
+          scenes: [],
+          sceneApproval: "draft",
+          sceneNotes: {},
         }),
       beginAnalysis: () =>
         set({
@@ -122,7 +162,103 @@ export const useProjectStore = create<ProjectState>()(
         set({ variationSeed: value });
         return value;
       },
-      fail: (error) => set({ status: "error", statusMessage: "", error }),
+      beginBrief: () =>
+        set({
+          status: "briefing",
+          statusMessage: "Distilling your answers into a protected creative north star…",
+          error: undefined,
+        }),
+      setBrief: (brief, meta) =>
+        set({
+          brief: { ...brief, approval: "ready" },
+          meta,
+          status: "ready",
+          statusMessage: "",
+          error: undefined,
+        }),
+      updateBriefField: (key, value) =>
+        set((state) => {
+          if (!state.brief || state.brief.approval === "approved") return state;
+          return { brief: { ...state.brief, [key]: value } };
+        }),
+      approveBrief: () =>
+        set((state) =>
+          state.brief
+            ? { brief: { ...state.brief, approval: "approved", approvedAt: new Date().toISOString() } }
+            : state,
+        ),
+      returnToQuestions: () => set({ brief: undefined, status: "ready", error: undefined }),
+      beginScenes: () =>
+        set({
+          status: "scenes",
+          statusMessage: "Turning the approved brief into an editable visual rhythm…",
+          error: undefined,
+        }),
+      setScenes: (scenes, meta) =>
+        set({
+          scenes: scenes.map((scene, index) => ({ ...scene, position: index + 1 })),
+          sceneApproval: "ready",
+          sceneNotes: {},
+          meta,
+          status: "ready",
+          statusMessage: "",
+          error: undefined,
+        }),
+      updateScene: (id, key, value) =>
+        set((state) =>
+          state.sceneApproval === "approved"
+            ? state
+            : { scenes: state.scenes.map((scene) => scene.id === id ? { ...scene, [key]: value } : scene) },
+        ),
+      addScene: () =>
+        set((state) => {
+          if (state.sceneApproval === "approved") return state;
+          const nextPosition = state.scenes.length + 1;
+          return {
+            scenes: [...state.scenes, {
+              id: `scene-local-${Date.now().toString(36)}`,
+              position: nextPosition,
+              storyBeat: "Untitled story beat",
+              sourceReference: "Creator-added beat",
+              narrativePurpose: "Define what this moment changes in the story.",
+              emotionalIntention: "Define the intended audience feeling.",
+              visualDescription: "Describe the essential image and action.",
+              shotType: "Medium shot",
+              durationSeconds: 5,
+              transitionIdea: "Cut on visual or emotional continuity.",
+            }],
+          };
+        }),
+      deleteScene: (id) =>
+        set((state) => {
+          if (state.sceneApproval === "approved" || state.scenes.length <= 2) return state;
+          return { scenes: state.scenes.filter((scene) => scene.id !== id).map((scene, index) => ({ ...scene, position: index + 1 })) };
+        }),
+      moveScene: (id, direction) =>
+        set((state) => {
+          if (state.sceneApproval === "approved") return state;
+          const index = state.scenes.findIndex((scene) => scene.id === id);
+          const target = index + direction;
+          if (index < 0 || target < 0 || target >= state.scenes.length) return state;
+          const scenes = [...state.scenes];
+          [scenes[index], scenes[target]] = [scenes[target], scenes[index]];
+          return { scenes: scenes.map((scene, sceneIndex) => ({ ...scene, position: sceneIndex + 1 })) };
+        }),
+      setSceneNote: (id, note) => set((state) => ({ sceneNotes: { ...state.sceneNotes, [id]: note } })),
+      beginSceneRegeneration: (regeneratingSceneId) => set({ regeneratingSceneId, error: undefined }),
+      replaceScene: (scene, meta) =>
+        set((state) => ({
+          scenes: state.scenes.map((current) => current.id === scene.id ? { ...scene, id: current.id, position: current.position } : current),
+          regeneratingSceneId: undefined,
+          meta,
+          error: undefined,
+        })),
+      approveScenes: () =>
+        set((state) => ({
+          sceneApproval: state.scenes.length >= 2 ? "approved" : state.sceneApproval,
+          scenesApprovedAt: state.scenes.length >= 2 ? new Date().toISOString() : state.scenesApprovedAt,
+        })),
+      fail: (error) => set({ status: "error", statusMessage: "", error, regeneratingSceneId: undefined }),
       startOver: () =>
         set({
           draft: blankStory,
@@ -132,6 +268,12 @@ export const useProjectStore = create<ProjectState>()(
           userCorrection: "",
           extraContext: "",
           variationSeed: 0,
+          brief: undefined,
+          scenes: [],
+          sceneApproval: "draft",
+          scenesApprovedAt: undefined,
+          sceneNotes: {},
+          regeneratingSceneId: undefined,
           status: "idle",
           statusMessage: "",
           error: undefined,
@@ -148,10 +290,14 @@ export const useProjectStore = create<ProjectState>()(
         userCorrection: state.userCorrection,
         extraContext: state.extraContext,
         variationSeed: state.variationSeed,
-        status: state.status === "analyzing" || state.status === "questioning" ? "idle" : state.status,
+        status: state.status === "analyzing" || state.status === "questioning" || state.status === "briefing" || state.status === "scenes" ? "idle" : state.status,
         meta: state.meta,
+        brief: state.brief,
+        scenes: state.scenes,
+        sceneApproval: state.sceneApproval,
+        scenesApprovedAt: state.scenesApprovedAt,
+        sceneNotes: state.sceneNotes,
       }),
     },
   ),
 );
-

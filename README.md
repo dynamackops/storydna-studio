@@ -4,9 +4,9 @@ An attentive AI creative director for solo AI filmmakers.
 
 > Keep your voice. Lose the production chaos.
 
-This repository currently implements the first verified vertical slice:
+This repository currently implements the verified creative-direction slice:
 
-**Story intake → StoryDNA analysis → exactly three adaptive clarification questions**
+**Story intake → StoryDNA analysis → exactly three adaptive clarification questions → approved creative brief → editable and approved scene outline**
 
 ## Run locally
 
@@ -38,4 +38,3 @@ The smoke test expects the development server to be running and guided-demo mode
 - [Technical spec](docs/hackathon-build/spec.md)
 - [Milestone checklist](docs/hackathon-build/checklist.md)
 - [Build notes](docs/hackathon-build/build-notes.md)
-

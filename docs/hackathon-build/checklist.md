@@ -44,17 +44,17 @@
 
 ## Milestone 5 — Confirmed creative brief
 
-- [ ] Generate from labeled source, interpretation, corrections, and answers.
-- [ ] Make all brief fields editable.
-- [ ] Require explicit approval before scenes.
-- [ ] Protect approved decisions from silent overwrite.
+- [x] Generate from labeled source, interpretation, corrections, and answers.
+- [x] Make all brief fields editable.
+- [x] Require explicit approval before scenes.
+- [x] Protect approved decisions from silent overwrite.
 
 ## Milestone 6 — Editable scenes
 
-- [ ] Generate outline only from approved brief.
-- [ ] Add/edit/delete/reorder scenes with stable IDs.
-- [ ] Regenerate one scene without changing others.
-- [ ] Approve outline and preserve ordering.
+- [x] Generate outline only from approved brief.
+- [x] Add/edit/delete/reorder scenes with stable IDs.
+- [x] Regenerate one scene without changing others.
+- [x] Approve outline and preserve ordering.
 
 ## Milestone 7 — Image prompts
 

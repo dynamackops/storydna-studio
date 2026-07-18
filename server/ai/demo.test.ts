@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { clarifyingQuestionsSchema, storyAnalysisSchema } from "../../shared/schemas";
-import { demoAnalysis, demoQuestions } from "./demo";
+import { clarifyingQuestionsSchema, creativeBriefSchema, sceneOutlineSchema, sceneSchema, storyAnalysisSchema } from "../../shared/schemas";
+import { demoAnalysis, demoCreativeBrief, demoQuestions, demoRegeneratedScene, demoSceneOutline } from "./demo";
 
 const demoStory = {
   title: "The House That Kept the Dawn",
@@ -24,5 +24,32 @@ describe("guided demo director", () => {
     expect(first.questions).toHaveLength(3);
     expect(second.questions).toHaveLength(3);
     expect(second.questions[0].id).not.toBe(first.questions[0].id);
+  });
+
+  it("turns creator answers and corrections into a valid brief", () => {
+    const analysis = demoAnalysis(demoStory);
+    const questions = demoQuestions(0).questions;
+    const answers = questions.map((question, index) => ({
+      questionId: question.id,
+      answer: index === 0 ? "A beautiful ache" : question.options[0],
+    }));
+    const brief = creativeBriefSchema.parse(
+      demoCreativeBrief(demoStory, analysis, answers, "The house represents her future.", "Keep the rusted key."),
+    );
+    expect(brief.emotionalDestination).toContain("A beautiful ache");
+    expect(brief.storytellingConstraints.join(" ")).toContain("future");
+  });
+
+  it("creates stable scene ids and regenerates only the target scene", () => {
+    const analysis = demoAnalysis(demoStory);
+    const outline = sceneOutlineSchema.parse(demoSceneOutline(demoStory, analysis));
+    expect(new Set(outline.scenes.map((scene) => scene.id)).size).toBe(outline.scenes.length);
+    const beforeIds = outline.scenes.map((scene) => scene.id);
+    const target = outline.scenes[1];
+    const regenerated = sceneSchema.parse(demoRegeneratedScene(target, "Make the key more prominent."));
+    const after = outline.scenes.map((scene) => scene.id === target.id ? regenerated : scene);
+    expect(after.map((scene) => scene.id)).toEqual(beforeIds);
+    expect(after[0]).toEqual(outline.scenes[0]);
+    expect(regenerated.visualDescription).toContain("key more prominent");
   });
 });

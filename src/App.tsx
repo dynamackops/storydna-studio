@@ -1,6 +1,6 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { storyInputSchema, type StoryInputValues } from "../shared/schemas";
-import { requestAnalysis, requestQuestions } from "./lib/api";
+import { requestAnalysis, requestCreativeBrief, requestQuestions, requestRegeneratedScene, requestSceneOutline } from "./lib/api";
 import { useProjectStore } from "./store/projectStore";
 
 const stages = ["Story", "DNA", "Scenes", "Images", "Motion", "Review"];
@@ -19,7 +19,26 @@ function Arrow({ direction = "right" }: { direction?: "right" | "down" }) {
   return <span className={`arrow arrow-${direction}`} aria-hidden="true">→</span>;
 }
 
-function Header({ hasAnalysis, onStartOver }: { hasAnalysis: boolean; onStartOver: () => void }) {
+function ApiStatus() {
+  const [status, setStatus] = useState<"checking" | "ready" | "demo" | "unknown">("checking");
+
+  useEffect(() => {
+    fetch("/api/story/status")
+      .then((response) => response.json())
+      .then((result: { configured?: boolean }) => setStatus(result.configured ? "ready" : "demo"))
+      .catch(() => setStatus("unknown"));
+  }, []);
+
+  const labels = {
+    checking: "Checking AI",
+    ready: "OpenAI ready",
+    demo: "Guided demo",
+    unknown: "AI status unknown",
+  };
+  return <span className={`api-status api-${status}`}><i />{labels[status]}</span>;
+}
+
+function Header({ activeStage, onStartOver }: { activeStage: number; onStartOver: () => void }) {
   return (
     <>
       <header className="site-header">
@@ -29,14 +48,15 @@ function Header({ hasAnalysis, onStartOver }: { hasAnalysis: boolean; onStartOve
           <em>Studio</em>
         </a>
         <div className="header-actions">
+          <ApiStatus />
           <span className="autosave"><i /> Saved locally</span>
-          {hasAnalysis && <button className="text-button" onClick={onStartOver}>New project</button>}
+          {activeStage > 0 && <button className="text-button" onClick={onStartOver}>New project</button>}
         </div>
       </header>
       <nav className="stage-nav" aria-label="Production stages">
         {stages.map((stage, index) => {
-          const active = hasAnalysis ? index === 1 : index === 0;
-          const complete = hasAnalysis && index === 0;
+          const active = index === activeStage;
+          const complete = index < activeStage;
           return (
             <div className={`stage ${active ? "active" : ""} ${complete ? "complete" : ""}`} key={stage}>
               <span>{complete ? "✓" : String(index + 1).padStart(2, "0")}</span>
@@ -230,8 +250,8 @@ function AnalysisView() {
   );
 }
 
-function QuestionsView({ onRegenerate }: { onRegenerate: () => Promise<void> }) {
-  const { questions, answers, setAnswer, userCorrection, setUserCorrection, extraContext, setExtraContext, status } = useProjectStore();
+function QuestionsView({ onRegenerate, onBuildBrief }: { onRegenerate: () => Promise<void>; onBuildBrief: () => Promise<void> }) {
+  const { questions, answers, setAnswer, userCorrection, setUserCorrection, extraContext, setExtraContext, status, error } = useProjectStore();
   const [showContext, setShowContext] = useState(false);
   const busy = status === "questioning";
   if (questions.length !== 3) return null;
@@ -269,18 +289,143 @@ function QuestionsView({ onRegenerate }: { onRegenerate: () => Promise<void> }) 
       </div>
       <div className="next-stage-preview">
         <div><span>Next</span><h3>Confirm the creative brief</h3><p>Your answers will be distilled into an editable north star before any scenes are made.</p></div>
-        <button className="primary-button" disabled title="Included in the next verified milestone">Build creative brief <Arrow /></button>
+        <button className="primary-button" onClick={onBuildBrief}>Build creative brief <Arrow /></button>
       </div>
+      {error && <div className="error-banner brief-error" role="alert"><strong>The brief needs one more thing.</strong> {error}</div>}
     </section>
   );
 }
 
-function DNAWorkspace({ onRegenerate }: { onRegenerate: () => Promise<void> }) {
+function BriefField({ label, value, onChange, locked, large = false }: { label: string; value: string; onChange: (value: string) => void; locked: boolean; large?: boolean }) {
+  return (
+    <label className={`brief-field ${large ? "brief-field-large" : ""}`}>
+      <span>{label}</span>
+      <textarea value={value} onChange={(event) => onChange(event.target.value)} readOnly={locked} />
+    </label>
+  );
+}
+
+function CreativeBriefView({ onBuildScenes }: { onBuildScenes: () => Promise<void> }) {
+  const { brief, draft, updateBriefField, approveBrief, returnToQuestions, meta } = useProjectStore();
+  if (!brief) return null;
+  const locked = brief.approval === "approved";
+  const editList = (key: "storytellingConstraints" | "consistencyRequirements", value: string) =>
+    updateBriefField(key, value.split("\n").map((item) => item.trim()).filter(Boolean));
+
+  return (
+    <section className={`brief-workspace ${locked ? "brief-approved" : ""}`}>
+      <div className="brief-hero">
+        <div>
+          <p className="eyebrow"><span>04</span> Confirmed direction</p>
+          <h1>{locked ? "This is the film’s north star." : "Shape the brief before we build."}</h1>
+          <p>{locked ? "These decisions are now protected and will guide every scene and prompt." : "Edit anything that misses your intention. Nothing moves to scenes until you approve it."}</p>
+        </div>
+        <div className={`approval-seal ${locked ? "sealed" : ""}`}>
+          <span>{locked ? "✓" : "04"}</span>
+          <strong>{locked ? "Approved" : "Awaiting approval"}</strong>
+          <small>{meta?.demoMode ? "Guided demo" : meta?.model}</small>
+        </div>
+      </div>
+
+      <div className="provenance-strip">
+        <div><span>Original voice</span><strong>{draft.title}</strong></div>
+        <i />
+        <div><span>AI reading</span><strong>StoryDNA interpretation</strong></div>
+        <i />
+        <div><span>Your decisions</span><strong>3 clarifying answers</strong></div>
+        <i />
+        <div className={locked ? "current" : ""}><span>Creative brief</span><strong>{locked ? "Approved & protected" : "Editable draft"}</strong></div>
+      </div>
+
+      <div className="brief-paper">
+        <div className="brief-paper-heading">
+          <div><span>Production brief</span><h2>{draft.title}</h2></div>
+          <p>{draft.aspectRatio} · approx. {draft.targetRuntimeSeconds}s · {draft.sourceType}</p>
+        </div>
+        <div className="brief-fields-grid">
+          <BriefField large label="Creative intention" value={brief.creativeIntention} locked={locked} onChange={(value) => updateBriefField("creativeIntention", value)} />
+          <BriefField label="Emotional destination" value={brief.emotionalDestination} locked={locked} onChange={(value) => updateBriefField("emotionalDestination", value)} />
+          <BriefField label="Visual identity" value={brief.visualIdentity} locked={locked} onChange={(value) => updateBriefField("visualIdentity", value)} />
+          <BriefField label="Character direction" value={brief.characterDirection} locked={locked} onChange={(value) => updateBriefField("characterDirection", value)} />
+          <BriefField label="Storytelling constraints · one per line" value={brief.storytellingConstraints.join("\n")} locked={locked} onChange={(value) => editList("storytellingConstraints", value)} />
+          <BriefField label="Must remain consistent · one per line" value={brief.consistencyRequirements.join("\n")} locked={locked} onChange={(value) => editList("consistencyRequirements", value)} />
+        </div>
+      </div>
+
+      {!locked ? (
+        <div className="brief-actions">
+          <button className="secondary-button" onClick={returnToQuestions}>← Revise my answers</button>
+          <p><span>✦</span> Approval protects this brief from later AI regeneration.</p>
+          <button className="primary-button" onClick={approveBrief}>Approve creative brief <Arrow /></button>
+        </div>
+      ) : (
+        <div className="approved-next">
+          <div><span className="approved-check">✓</span><div><strong>Creative direction locked</strong><p>Scene generation will inherit these exact decisions.</p></div></div>
+          <button className="primary-button" onClick={onBuildScenes}>Build scene outline <Arrow /></button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SceneTextField({ label, value, onChange, locked, rows = 2 }: { label: string; value: string; onChange: (value: string) => void; locked: boolean; rows?: number }) {
+  return <label className="scene-field"><span>{label}</span><textarea rows={rows} value={value} readOnly={locked} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
+function ScenesWorkspace({ onRegenerateScene }: { onRegenerateScene: (id: string) => Promise<void> }) {
+  const store = useProjectStore();
+  const locked = store.sceneApproval === "approved";
+  const totalDuration = store.scenes.reduce((sum, scene) => sum + scene.durationSeconds, 0);
+
+  return (
+    <section className={`scenes-workspace ${locked ? "scenes-approved" : ""}`}>
+      <div className="scenes-hero">
+        <div><p className="eyebrow"><span>05</span> Scene architecture</p><h1>{locked ? "The visual rhythm is locked." : "Build the film, beat by beat."}</h1><p>{locked ? "Every downstream image prompt will inherit this approved order and intention." : "Edit freely. Reorder the rhythm. Regenerate only the scene that needs another idea."}</p></div>
+        <div className="outline-stats"><div><strong>{String(store.scenes.length).padStart(2, "0")}</strong><span>Scenes</span></div><i /><div><strong>{totalDuration}s</strong><span>Estimated runtime</span></div></div>
+      </div>
+
+      <div className="outline-toolbar">
+        <div><span className={`outline-status ${locked ? "locked" : ""}`}>{locked ? "✓ Approved outline" : "Editable outline"}</span><small>Stable IDs preserve unaffected work</small></div>
+        {!locked && <button className="secondary-button" onClick={store.addScene}>＋ Add scene</button>}
+      </div>
+
+      <div className="scene-list">
+        {store.scenes.map((scene, index) => {
+          const regenerating = store.regeneratingSceneId === scene.id;
+          return (
+            <article className="scene-card" data-scene-id={scene.id} key={scene.id}>
+              <div className="scene-rail"><strong>{String(scene.position).padStart(2, "0")}</strong><span>{scene.id}</span>{!locked && <div className="reorder-controls"><button aria-label={`Move scene ${scene.position} up`} disabled={index === 0} onClick={() => store.moveScene(scene.id, -1)}>↑</button><button aria-label={`Move scene ${scene.position} down`} disabled={index === store.scenes.length - 1} onClick={() => store.moveScene(scene.id, 1)}>↓</button></div>}</div>
+              <div className="scene-body">
+                <div className="scene-card-heading">
+                  <SceneTextField label="Story beat" value={scene.storyBeat} locked={locked} onChange={(value) => store.updateScene(scene.id, "storyBeat", value)} />
+                  <label className="duration-field"><span>Duration</span><div><input type="number" min="1" max="60" value={scene.durationSeconds} readOnly={locked} onChange={(event) => store.updateScene(scene.id, "durationSeconds", Math.max(1, Number(event.target.value)))} /><b>sec</b></div></label>
+                </div>
+                <div className="scene-fields-grid">
+                  <SceneTextField label="Source reference" value={scene.sourceReference} locked={locked} onChange={(value) => store.updateScene(scene.id, "sourceReference", value)} />
+                  <SceneTextField label="Narrative purpose" value={scene.narrativePurpose} locked={locked} onChange={(value) => store.updateScene(scene.id, "narrativePurpose", value)} />
+                  <SceneTextField label="Emotional intention" value={scene.emotionalIntention} locked={locked} onChange={(value) => store.updateScene(scene.id, "emotionalIntention", value)} />
+                  <SceneTextField label="Suggested shot" value={scene.shotType} locked={locked} onChange={(value) => store.updateScene(scene.id, "shotType", value)} />
+                  <div className="scene-wide"><SceneTextField rows={3} label="Visual description" value={scene.visualDescription} locked={locked} onChange={(value) => store.updateScene(scene.id, "visualDescription", value)} /></div>
+                  <div className="scene-wide"><SceneTextField label="Transition idea" value={scene.transitionIdea} locked={locked} onChange={(value) => store.updateScene(scene.id, "transitionIdea", value)} /></div>
+                </div>
+                {!locked && <div className="scene-actions"><input aria-label={`Regeneration note for scene ${scene.position}`} value={store.sceneNotes[scene.id] || ""} onChange={(event) => store.setSceneNote(scene.id, event.target.value)} placeholder="Optional direction for a different version…" /><button className="secondary-button" disabled={regenerating} onClick={() => onRegenerateScene(scene.id)}>{regenerating ? "Regenerating…" : "↻ Regenerate scene"}</button><button className="delete-scene" disabled={store.scenes.length <= 2} onClick={() => store.deleteScene(scene.id)}>Delete</button></div>}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      {!locked ? <div className="outline-approval"><div><span>Ready?</span><h3>Approve the scene outline</h3><p>Approval locks order and content before image prompts are generated.</p></div><button className="primary-button" onClick={store.approveScenes}>Approve outline <Arrow /></button></div> : <div className="approved-next"><div><span className="approved-check">✓</span><div><strong>Scene outline protected</strong><p>Unchanged scenes will keep their stable IDs through the next stage.</p></div></div><button className="primary-button" disabled title="Image prompts are the next milestone">Generate image prompts <Arrow /></button></div>}
+    </section>
+  );
+}
+
+function DNAWorkspace({ onRegenerate, onBuildBrief, onBuildScenes, onRegenerateScene }: { onRegenerate: () => Promise<void>; onBuildBrief: () => Promise<void>; onBuildScenes: () => Promise<void>; onRegenerateScene: (id: string) => Promise<void> }) {
+  const brief = useProjectStore((state) => state.brief);
+  const scenes = useProjectStore((state) => state.scenes);
   return (
     <main className="dna-shell">
-      <AnalysisHeader />
-      <AnalysisView />
-      <QuestionsView onRegenerate={onRegenerate} />
+      {scenes.length ? <ScenesWorkspace onRegenerateScene={onRegenerateScene} /> : brief ? <CreativeBriefView onBuildScenes={onBuildScenes} /> : <><AnalysisHeader /><AnalysisView /><QuestionsView onRegenerate={onRegenerate} onBuildBrief={onBuildBrief} /></>}
     </main>
   );
 }
@@ -288,8 +433,9 @@ function DNAWorkspace({ onRegenerate }: { onRegenerate: () => Promise<void> }) {
 export default function App() {
   const store = useProjectStore();
   const hasAnalysis = Boolean(store.analysis);
-  const loading = store.status === "analyzing" || store.status === "questioning";
-  const loadingPhase = useMemo(() => store.status === "questioning" ? "Finding the creative forks." : "Reading beneath the words.", [store.status]);
+  const activeStage = store.scenes.length ? 2 : hasAnalysis ? 1 : 0;
+  const loading = store.status === "analyzing" || store.status === "questioning" || store.status === "briefing" || store.status === "scenes";
+  const loadingPhase = useMemo(() => store.status === "scenes" ? "Finding the visual rhythm." : store.status === "briefing" ? "Distilling the north star." : store.status === "questioning" ? "Finding the creative forks." : "Reading beneath the words.", [store.status]);
 
   const runQuestions = async (input: StoryInputValues, analysis = store.analysis, seed = store.variationSeed) => {
     if (!analysis) return;
@@ -318,13 +464,61 @@ export default function App() {
     await runQuestions(store.draft, store.analysis, seed);
   };
 
+  const buildBrief = async () => {
+    if (!store.analysis) return;
+    const answers = store.questions.map((question) => ({ questionId: question.id, answer: (store.answers[question.id] || "").trim() }));
+    if (answers.some((answer) => !answer.answer)) {
+      store.fail("Answer all three creative questions before building the brief.");
+      return;
+    }
+    store.beginBrief();
+    try {
+      const result = await requestCreativeBrief(
+        store.draft,
+        store.analysis,
+        store.questions,
+        answers,
+        store.userCorrection,
+        store.extraContext,
+      );
+      store.setBrief(result.data, result.meta);
+    } catch (error) {
+      store.fail(error instanceof Error ? error.message : "Creative brief generation failed.");
+    }
+  };
+
+  const buildScenes = async () => {
+    if (!store.analysis || !store.brief || store.brief.approval !== "approved") return;
+    store.beginScenes();
+    try {
+      const result = await requestSceneOutline(store.draft, store.analysis, store.brief);
+      store.setScenes(result.data.scenes, result.meta);
+    } catch (error) {
+      store.fail(error instanceof Error ? error.message : "Scene outline generation failed.");
+    }
+  };
+
+  const regenerateSceneById = async (id: string) => {
+    if (!store.analysis || !store.brief || store.sceneApproval === "approved") return;
+    const index = store.scenes.findIndex((scene) => scene.id === id);
+    if (index < 0) return;
+    const beforeIds = store.scenes.map((scene) => scene.id).join("|");
+    store.beginSceneRegeneration(id);
+    try {
+      const result = await requestRegeneratedScene(store.draft, store.analysis, store.brief, store.scenes[index], store.scenes[index - 1], store.scenes[index + 1], store.sceneNotes[id] || "");
+      store.replaceScene(result.data, result.meta);
+      if (useProjectStore.getState().scenes.map((scene) => scene.id).join("|") !== beforeIds) throw new Error("Stable scene IDs changed unexpectedly.");
+    } catch (error) {
+      store.fail(error instanceof Error ? error.message : "Scene regeneration failed.");
+    }
+  };
+
   return (
     <div className="app-frame">
       <div className="ambient ambient-one" /><div className="ambient ambient-two" />
-      <Header hasAnalysis={hasAnalysis} onStartOver={store.startOver} />
-      {loading ? <LoadingDirector message={store.statusMessage} phase={loadingPhase} /> : hasAnalysis ? <DNAWorkspace onRegenerate={regenerate} /> : <StoryIntake onAnalyze={analyze} />}
+      <Header activeStage={activeStage} onStartOver={store.startOver} />
+      {loading ? <LoadingDirector message={store.statusMessage} phase={loadingPhase} /> : hasAnalysis ? <DNAWorkspace onRegenerate={regenerate} onBuildBrief={buildBrief} onBuildScenes={buildScenes} onRegenerateScene={regenerateSceneById} /> : <StoryIntake onAnalyze={analyze} />}
       <footer><Mark /><p>StoryDNA Studio <span>·</span> An attentive creative director for AI filmmakers.</p><small>Built for OpenAI Build Week</small></footer>
     </div>
   );
 }
-

@@ -2,9 +2,14 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import {
   clarifyingQuestionsSchema,
+  creativeBriefSchema,
+  sceneOutlineSchema,
+  sceneSchema,
   storyAnalysisSchema,
   type StoryAnalysisValues,
   type StoryInputValues,
+  type CreativeBriefValues,
+  type SceneValues,
 } from "../../shared/schemas";
 
 const CREATIVE_DIRECTOR = `You are the StoryDNA creative director for a solo AI filmmaker. Be attentive, specific, cinematic, and emotionally literate. Preserve ambiguity where it appears intentional. Distinguish evidence in the source from your interpretation. Never flatten the creator's voice into generic inspirational language.`;
@@ -65,3 +70,86 @@ export async function generateClarifyingQuestions(
   return clarifyingQuestionsSchema.parse(response.output_parsed);
 }
 
+export async function createCreativeBrief(
+  input: StoryInputValues,
+  analysis: StoryAnalysisValues,
+  questions: Array<{ id: string; question: string; whyItMatters: string; decisionArea: string; options: string[] }>,
+  answers: Array<{ questionId: string; answer: string }>,
+  userCorrection: string,
+  extraContext: string,
+  apiKey: string,
+  model: string,
+) {
+  const response = await client(apiKey).responses.parse({
+    model,
+    input: [
+      {
+        role: "system",
+        content: `${CREATIVE_DIRECTOR}\n\nCreate a concise production-facing creative brief, not a scene outline. Treat creator answers and corrections as authoritative confirmed decisions. When a creator correction conflicts with the AI interpretation, the creator correction wins. Make every field editable in spirit: clear, specific, and free of conversational filler. Constraints and consistency requirements must be observable in later scene or prompt work.`,
+      },
+      {
+        role: "user",
+        content: `ORIGINAL SOURCE MATERIAL (immutable)\n${JSON.stringify(input, null, 2)}\n\nAI INTERPRETATION (unapproved evidence)\n${JSON.stringify(analysis, null, 2)}\n\nCLARIFYING QUESTIONS\n${JSON.stringify(questions, null, 2)}\n\nCREATOR ANSWERS (authoritative)\n${JSON.stringify(answers, null, 2)}\n\nCREATOR CORRECTION (authoritative; overrides interpretation)\n${userCorrection || "None provided"}\n\nEXTRA CREATIVE CONTEXT (authoritative)\n${extraContext || "None provided"}`,
+      },
+    ],
+    text: { format: zodTextFormat(creativeBriefSchema, "confirmed_creative_brief") },
+  });
+
+  if (!response.output_parsed) throw new Error("The model returned no parsed creative brief.");
+  return creativeBriefSchema.parse(response.output_parsed);
+}
+
+export async function generateSceneOutline(
+  input: StoryInputValues,
+  analysis: StoryAnalysisValues,
+  brief: CreativeBriefValues,
+  apiKey: string,
+  model: string,
+) {
+  const response = await client(apiKey).responses.parse({
+    model,
+    input: [
+      {
+        role: "system",
+        content: `${CREATIVE_DIRECTOR}\n\nCreate an ordered visual scene outline only from the approved creative brief. Every scene must advance the emotional arc and have a distinct narrative purpose. Do not generate image prompts yet. Use stable ids scene-01, scene-02, and so on. Total suggested duration should stay reasonably close to the creator's target runtime. Source references may quote only a short phrase or identify a beat. Preserve every constraint and consistency requirement.`,
+      },
+      {
+        role: "user",
+        content: `ORIGINAL SOURCE MATERIAL\n${JSON.stringify(input, null, 2)}\n\nSTORYDNA INTERPRETATION\n${JSON.stringify(analysis, null, 2)}\n\nAPPROVED CREATIVE BRIEF (authoritative; never contradict)\n${JSON.stringify(brief, null, 2)}`,
+      },
+    ],
+    text: { format: zodTextFormat(sceneOutlineSchema, "scene_outline") },
+  });
+  if (!response.output_parsed) throw new Error("The model returned no parsed scene outline.");
+  return sceneOutlineSchema.parse(response.output_parsed);
+}
+
+export async function regenerateScene(
+  input: StoryInputValues,
+  analysis: StoryAnalysisValues,
+  brief: CreativeBriefValues,
+  scene: SceneValues,
+  previousScene: SceneValues | undefined,
+  nextScene: SceneValues | undefined,
+  creatorNote: string,
+  apiKey: string,
+  model: string,
+) {
+  const response = await client(apiKey).responses.parse({
+    model,
+    input: [
+      {
+        role: "system",
+        content: `${CREATIVE_DIRECTOR}\n\nRegenerate exactly one scene. Preserve its id and position exactly. Do not modify or return neighboring scenes. Keep continuity with the supplied neighbors and obey the approved brief. Make a meaningful visual improvement based on the creator note when provided. Do not generate an image prompt.`,
+      },
+      {
+        role: "user",
+        content: `ORIGINAL SOURCE\n${JSON.stringify(input, null, 2)}\n\nSTORYDNA\n${JSON.stringify(analysis, null, 2)}\n\nAPPROVED BRIEF\n${JSON.stringify(brief, null, 2)}\n\nPREVIOUS SCENE (context only)\n${JSON.stringify(previousScene || null, null, 2)}\n\nTARGET SCENE (preserve id and position)\n${JSON.stringify(scene, null, 2)}\n\nNEXT SCENE (context only)\n${JSON.stringify(nextScene || null, null, 2)}\n\nCREATOR NOTE\n${creatorNote || "Find a stronger cinematic expression without changing the story beat."}`,
+      },
+    ],
+    text: { format: zodTextFormat(sceneSchema, "regenerated_scene") },
+  });
+  if (!response.output_parsed) throw new Error("The model returned no parsed scene.");
+  const parsed = sceneSchema.parse(response.output_parsed);
+  return { ...parsed, id: scene.id, position: scene.position };
+}

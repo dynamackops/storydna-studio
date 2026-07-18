@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clarifyingQuestionsSchema, storyInputSchema } from "./schemas";
+import { clarifyingQuestionsSchema, creativeBriefRequestSchema, sceneOutlineSchema, storyInputSchema } from "./schemas";
 
 const question = {
   id: "q-ending",
@@ -36,5 +36,13 @@ describe("StoryDNA schemas", () => {
     });
     expect(result.success).toBe(false);
   });
-});
 
+  it("requires three answered creative decisions before brief generation", () => {
+    const result = creativeBriefRequestSchema.safeParse({ answers: [] });
+    expect(result.success).toBe(false);
+  });
+
+  it("requires a production-usable scene outline", () => {
+    expect(sceneOutlineSchema.safeParse({ scenes: [] }).success).toBe(false);
+  });
+});

@@ -1,8 +1,13 @@
 import {
   analysisResponseSchema,
+  creativeBriefResponseSchema,
+  sceneOutlineResponseSchema,
+  sceneResponseSchema,
   questionsResponseSchema,
   type StoryAnalysisValues,
   type StoryInputValues,
+  type CreativeBriefValues,
+  type SceneValues,
 } from "../../shared/schemas";
 
 export interface ApiErrorShape {
@@ -48,3 +53,52 @@ export async function requestQuestions(
   );
 }
 
+export async function requestCreativeBrief(
+  input: StoryInputValues,
+  analysis: StoryAnalysisValues,
+  questions: Array<{ id: string; question: string; whyItMatters: string; decisionArea: "emotion" | "symbolism" | "world" | "character" | "pacing" | "visual-language"; options: string[] }>,
+  answers: Array<{ questionId: string; answer: string }>,
+  userCorrection: string,
+  extraContext: string,
+) {
+  return creativeBriefResponseSchema.parse(
+    await post("/api/story/brief", {
+      input,
+      analysis,
+      questions,
+      answers,
+      userCorrection,
+      extraContext,
+    }),
+  );
+}
+
+export async function requestSceneOutline(
+  input: StoryInputValues,
+  analysis: StoryAnalysisValues,
+  brief: CreativeBriefValues,
+) {
+  return sceneOutlineResponseSchema.parse(await post("/api/story/scenes", { input, analysis, brief }));
+}
+
+export async function requestRegeneratedScene(
+  input: StoryInputValues,
+  analysis: StoryAnalysisValues,
+  brief: CreativeBriefValues,
+  scene: SceneValues,
+  previousScene: SceneValues | undefined,
+  nextScene: SceneValues | undefined,
+  creatorNote: string,
+) {
+  return sceneResponseSchema.parse(
+    await post("/api/story/scene/regenerate", {
+      input,
+      analysis,
+      brief,
+      scene,
+      previousScene,
+      nextScene,
+      creatorNote,
+    }),
+  );
+}

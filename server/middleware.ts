@@ -1,11 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import {
+  creativeBriefRequestSchema,
+  regenerateSceneRequestSchema,
+  sceneOutlineRequestSchema,
   questionsRequestSchema,
   storyInputSchema,
 } from "../shared/schemas";
-import { demoAnalysis, demoQuestions } from "./ai/demo";
-import { analyzeStory, generateClarifyingQuestions } from "./ai/operations";
+import { demoAnalysis, demoCreativeBrief, demoQuestions, demoRegeneratedScene, demoSceneOutline } from "./ai/demo";
+import { analyzeStory, createCreativeBrief, generateClarifyingQuestions, generateSceneOutline, regenerateScene } from "./ai/operations";
 
 interface ApiConfig {
   apiKey?: string;
@@ -41,6 +44,12 @@ export function storyApiPlugin(config: ApiConfig): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith("/api/story/")) return next();
+        if (req.url === "/api/story/status" && req.method === "GET") {
+          return send(res, 200, {
+            configured: Boolean(config.apiKey),
+            model: config.model,
+          });
+        }
         if (req.method !== "POST") return send(res, 405, { code: "method_not_allowed", message: "Use POST.", retryable: false });
         if (!req.headers["content-type"]?.includes("application/json")) {
           return send(res, 415, { code: "invalid_content_type", message: "Send JSON.", retryable: false });
@@ -74,6 +83,55 @@ export function storyApiPlugin(config: ApiConfig): Plugin {
             return send(res, 200, { data, meta: meta(config, demoMode) });
           }
 
+          if (req.url === "/api/story/brief") {
+            const parsed = creativeBriefRequestSchema.parse(body);
+            const data = demoMode
+              ? demoCreativeBrief(
+                  parsed.input,
+                  parsed.analysis,
+                  parsed.answers,
+                  parsed.userCorrection,
+                  parsed.extraContext,
+                )
+              : await createCreativeBrief(
+                  parsed.input,
+                  parsed.analysis,
+                  parsed.questions,
+                  parsed.answers,
+                  parsed.userCorrection,
+                  parsed.extraContext,
+                  config.apiKey!,
+                  config.model,
+                );
+            return send(res, 200, { data, meta: meta(config, demoMode) });
+          }
+
+          if (req.url === "/api/story/scenes") {
+            const parsed = sceneOutlineRequestSchema.parse(body);
+            const data = demoMode
+              ? demoSceneOutline(parsed.input, parsed.analysis)
+              : await generateSceneOutline(parsed.input, parsed.analysis, parsed.brief, config.apiKey!, config.model);
+            return send(res, 200, { data, meta: meta(config, demoMode) });
+          }
+
+          if (req.url === "/api/story/scene/regenerate") {
+            const parsed = regenerateSceneRequestSchema.parse(body);
+            const data = demoMode
+              ? demoRegeneratedScene(parsed.scene, parsed.creatorNote)
+              : await regenerateScene(
+                  parsed.input,
+                  parsed.analysis,
+                  parsed.brief,
+                  parsed.scene,
+                  parsed.previousScene,
+                  parsed.nextScene,
+                  parsed.creatorNote,
+                  config.apiKey!,
+                  config.model,
+                );
+            return send(res, 200, { data, meta: meta(config, demoMode) });
+          }
+
           return send(res, 404, { code: "not_found", message: "Unknown operation.", retryable: false });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Unknown server error.";
@@ -88,4 +146,3 @@ export function storyApiPlugin(config: ApiConfig): Plugin {
     },
   };
 }
-

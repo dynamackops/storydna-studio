@@ -1,4 +1,10 @@
-import type { ClarifyingQuestionValues, StoryAnalysisValues, StoryInputValues } from "../../shared/schemas";
+import type {
+  ClarifyingQuestionValues,
+  CreativeBriefValues,
+  SceneValues,
+  StoryAnalysisValues,
+  StoryInputValues,
+} from "../../shared/schemas";
 
 export function demoAnalysis(input: StoryInputValues): StoryAnalysisValues {
   const sceneCount = Math.max(3, Math.min(12, Math.round(input.targetRuntimeSeconds / 8)));
@@ -93,3 +99,73 @@ export function demoQuestions(seed: number): { questions: ClarifyingQuestionValu
   return { questions: questionSets[seed % questionSets.length] };
 }
 
+export function demoCreativeBrief(
+  input: StoryInputValues,
+  analysis: StoryAnalysisValues,
+  answers: Array<{ questionId: string; answer: string }>,
+  userCorrection: string,
+  extraContext: string,
+): CreativeBriefValues {
+  const decisions = answers.map((item) => item.answer).join("; ");
+  return {
+    creativeIntention: `Create an intimate visual poem about ${analysis.mainThemes.slice(0, 2).join(" and ")} that lets the source remain emotionally ambiguous while making its central transformation legible.`,
+    emotionalDestination: `${analysis.endingEmotionalState} The creator's chosen direction is: ${answers[0]?.answer}.`,
+    visualIdentity: `${analysis.visualLanguage} Use ${analysis.sensoryDirection.color.toLowerCase()} Lighting should feel ${analysis.sensoryDirection.lighting.toLowerCase()}`,
+    characterDirection: `${analysis.characterTransformation}${input.characterDescription ? ` Preserve this anchor: ${input.characterDescription}` : ""}`,
+    storytellingConstraints: [
+      "Do not illustrate every line literally; each image must advance the emotional movement.",
+      `Honor these confirmed creative choices: ${decisions}.`,
+      `Design for ${input.aspectRatio} and an approximate ${input.targetRuntimeSeconds}-second finished runtime.`,
+      ...(userCorrection ? [`Creator correction overrides the initial interpretation: ${userCorrection}`] : []),
+    ],
+    consistencyRequirements: [
+      "Repeat thresholds, reflected surfaces, and the evolving warm light with purposeful variation.",
+      "Keep wardrobe, age, hair, and silhouette consistent whenever the protagonist appears.",
+      "Let posture, gaze, and distance from camera carry the transformation before overt action.",
+      ...(extraContext ? [`Carry this creator context through every scene: ${extraContext}`] : []),
+    ],
+  };
+}
+
+export function demoSceneOutline(
+  input: StoryInputValues,
+  analysis: StoryAnalysisValues,
+): { scenes: SceneValues[] } {
+  const count = Math.max(4, Math.min(8, analysis.initialEstimatedSceneCount));
+  const beatTemplates = [
+    ["The held breath", "Opening image / emotional baseline", "Establish containment before the story changes", "Distance and guarded stillness", "The protagonist crosses a silver field toward the abandoned house; the warm dawn remains trapped in its windows.", "Wide establishing shot", "A slow dissolve carried by moving grass"],
+    ["The key remembers", "The rusted key and the approach", "Turn an ordinary object into the first charged symbol", "Recognition without understanding", "A weathered hand closes around the rusted key as the house softens out of focus behind it.", "Macro insert", "Match cut from the key's circular bow to a dark window"],
+    ["A voice behind the door", "The younger voice names what was forgotten", "Make the internal conflict present without over-explaining it", "Unease becoming attention", "At the threshold, the protagonist hears her younger self; reflected light briefly suggests a second figure without revealing one.", "Tight over-the-shoulder", "Sound bridge into the stillness before the turn"],
+    ["The choice to enter", "She turns the key", "Stage the irreversible emotional decision", "Fear held alongside resolve", "The key turns with tactile resistance as amber light leaks through the doorframe and reaches her face.", "Extreme close-up to medium profile", "Hard cut on the lock's release"],
+    ["The house opens into sky", "The impossible reveal", "Externalize the transformation through one earned visual rupture", "Awe with a beautiful ache", "The interior walls fall away into an immense quiet sky; familiar objects drift at the edge of the impossible space.", "Wide reveal with restrained push-in", "Light bloom that resolves into a softer exposure"],
+    ["The light stays", "Final line / emotional destination", "Land the meaning without forcing resolution", "Tender clarity, still unresolved", "The protagonist stands within the open sky as the warm source settles beside rather than behind her; her posture releases before her expression does.", "Intimate medium close-up", "Hold on breath, then fade through the warm practical"],
+  ] as const;
+
+  return {
+    scenes: Array.from({ length: count }, (_, index) => {
+      const template = beatTemplates[Math.min(index, beatTemplates.length - 1)];
+      return {
+        id: `scene-${String(index + 1).padStart(2, "0")}`,
+        position: index + 1,
+        storyBeat: template[0],
+        sourceReference: template[1],
+        narrativePurpose: template[2],
+        emotionalIntention: template[3],
+        visualDescription: template[4],
+        shotType: template[5],
+        durationSeconds: Math.max(4, Math.round(input.targetRuntimeSeconds / count)),
+        transitionIdea: template[6],
+      };
+    }),
+  };
+}
+
+export function demoRegeneratedScene(scene: SceneValues, creatorNote: string): SceneValues {
+  const cleanNote = creatorNote.replace(/[.!?]+$/, "");
+  return {
+    ...scene,
+    visualDescription: `${scene.visualDescription} Reframe the moment with stronger foreground depth and one precise symbolic detail${cleanNote ? `; creator direction: ${cleanNote}` : ""}.`,
+    shotType: scene.shotType.includes("alternate") ? scene.shotType : `${scene.shotType} · alternate framing`,
+    transitionIdea: `Refined transition: ${scene.transitionIdea}`,
+  };
+}
