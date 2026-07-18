@@ -1,0 +1,80 @@
+# StoryDNA Studio — Build Checklist
+
+## Milestone 0 — Foundation and product contract
+
+- [x] Inspect repository and local instructions.
+- [x] Record existing state (empty greenfield workspace).
+- [x] Confirm official API model ID and Structured Outputs support.
+- [x] Define day-one scope and explicit cuts.
+- [x] Write PRD and technical spec.
+- [x] Define acceptance criteria and verification plan.
+
+## Milestone 1 — Vertical slice foundation
+
+- [x] Scaffold React, TypeScript, and Vite.
+- [x] Add shared domain schemas and requested TypeScript types.
+- [x] Add persisted Zustand workflow store.
+- [x] Add server-only OpenAI boundary and environment example.
+- [x] Add explicit deterministic demo fallback.
+- [x] Verify typecheck and production build.
+
+## Milestone 2 — Story intake
+
+- [x] Implement cinematic responsive shell and stage navigation.
+- [x] Implement accessible, validated intake form.
+- [x] Persist draft fields locally.
+- [x] Show progress and retry states.
+- [x] Verify mobile and desktop layouts.
+
+## Milestone 3 — StoryDNA analysis
+
+- [x] Implement independent `analyzeStory` operation.
+- [x] Validate structured response with Zod.
+- [x] Render every analysis field with interpretation framing.
+- [x] Preserve original source separately.
+- [x] Verify API success, validation failure, and demo fallback.
+
+## Milestone 4 — Three adaptive questions
+
+- [x] Implement independent `generateClarifyingQuestions` operation.
+- [x] Enforce exactly three questions in schema and UI.
+- [x] Support answers, correction, and extra context.
+- [x] Support requesting a different set without regenerating analysis.
+- [x] Verify persistence and refresh behavior.
+
+## Milestone 5 — Confirmed creative brief
+
+- [ ] Generate from labeled source, interpretation, corrections, and answers.
+- [ ] Make all brief fields editable.
+- [ ] Require explicit approval before scenes.
+- [ ] Protect approved decisions from silent overwrite.
+
+## Milestone 6 — Editable scenes
+
+- [ ] Generate outline only from approved brief.
+- [ ] Add/edit/delete/reorder scenes with stable IDs.
+- [ ] Regenerate one scene without changing others.
+- [ ] Approve outline and preserve ordering.
+
+## Milestone 7 — Image prompts
+
+- [ ] Generate detailed and short prompt per approved scene.
+- [ ] Add alternate framing, negative instructions, copy, and isolated regenerate.
+- [ ] Verify aspect ratio and consistency details propagate.
+
+## Later milestones
+
+- [ ] Motion workspace and image uploads.
+- [ ] Configurable production estimates with clear disclaimer.
+- [ ] Supabase Auth/Postgres/Storage and verified RLS policies.
+- [ ] Finished-video Director's Commentary modes.
+- [ ] Export and deployment hardening.
+
+## Release gate for each milestone
+
+- [ ] Acceptance criteria demonstrated.
+- [ ] Typecheck passes.
+- [ ] Focused tests pass.
+- [ ] Production build passes.
+- [ ] Desktop and mobile visual states checked.
+- [ ] Build notes updated with decisions, cuts, bugs, verification, and Devpost value.
