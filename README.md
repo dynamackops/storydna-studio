@@ -143,11 +143,60 @@ Follow the [Netlify deployment guide](docs/hackathon-build/deploy-netlify.md). C
 - Credit totals appear only when the creator supplies a sample rate; no live provider pricing is included.
 - PDF, ZIP, embedded-asset, and share-link exports are deferred.
 
-## Built with Codex and GPT-5.6
+## How Jasmine and Codex collaborated
 
-GPT-5.6 is the structured creative-direction runtime. It is used through focused operations instead of one monolithic prompt, with approved creator decisions labeled as authoritative at every downstream stage.
+StoryDNA Studio was built as an iterative collaboration between Jasmine Mack and Codex—not as a one-shot generated application.
 
-Codex supported product planning, architecture, React and server implementation, schema design, testing, debugging, responsive refinement, deployment hardening, and submission documentation. The build log records decisions, cuts, bugs, and verification evidence throughout the project.
+### Jasmine's product, creative, and design decisions
+
+Jasmine defined the product vision, the solo AI filmmaker audience, and the core promise: **“Keep your voice. Lose the production chaos.”** She made the decisions that shaped the experience:
+
+- The product must listen and interpret before generating production material.
+- It must ask exactly three adaptive questions about choices that could materially change the film.
+- Creators must be able to correct the AI's interpretation and approve an editable creative brief before scenes are generated.
+- The interface should feel cinematic and imaginative rather than like a dashboard or generic chatbot.
+- A complete, demonstrable creative workflow mattered more than authentication, payments, or a large database.
+- Typography and working text needed a readability pass without losing the visual identity.
+- Director's Commentary was prioritized as the final creative loop before submission infrastructure.
+
+Jasmine reviewed the product milestone by milestone in the running application, tested each newly unlocked stage, reported interaction and deployment failures, selected what to build next, and made the final deployment and submission decisions.
+
+### Where Codex accelerated the workflow
+
+Codex translated those decisions into small, verified milestones and kept implementation, tests, and documentation moving together. Its contributions included:
+
+- Auditing the greenfield repository and creating the scope, PRD, technical specification, checklist, and running build notes.
+- Designing a provenance-aware architecture that separates original source, provisional AI interpretation, creator corrections, confirmed decisions, and generated production artifacts.
+- Implementing the React/TypeScript interface, Zustand persistence, shared Zod contracts, server-only OpenAI boundary, and deterministic guided-demo path.
+- Building each vertical slice independently: analysis, questions, creative brief, scenes, image prompts, motion plans, estimates, export, and Director's Commentary.
+- Protecting unaffected work through stable scene IDs and isolated scene and image-prompt regeneration.
+- Adding contract, estimator, export, video-sampling, model-configuration, and Netlify-function tests.
+- Diagnosing API quota and model-resolution errors, visible error handling, Netlify repository configuration, serverless function naming, and multimodal payload limits.
+- Refining responsive behavior, typography, contrast, privacy copy, technical limitations, deployment documentation, and Devpost materials.
+
+The working loop was consistent: Jasmine set the goal and judged the experience; Codex proposed or implemented the smallest next milestone; automated checks and browser verification tested it; Jasmine reviewed the live result and chose the next priority.
+
+### How GPT-5.6 contributes to the product
+
+GPT-5.6 is the application's structured creative-direction runtime. It is used through focused operations rather than one monolithic prompt:
+
+- StoryDNA analysis without premature scene generation
+- Exactly three adaptive clarification questions
+- Editable creative-brief synthesis from creator-approved decisions
+- Scene outlining and isolated scene regeneration
+- Scene-linked image-prompt generation and isolated prompt regeneration
+- Image-to-video motion direction
+- Sampled-frame Director's Commentary against the approved project context
+
+The Responses API returns schema-validated Structured Outputs for each operation. Prompts label creator corrections, answers, and approved briefs as authoritative so the model cannot silently treat its first interpretation as the final creative decision.
+
+### Primary Codex build thread
+
+The majority of the core functionality was built in the Codex thread **“Kick Off StoryDNA Studio MVP.”**
+
+`019f7433-c3d4-7173-9c9a-a45375b897d4`
+
+The detailed [build notes](docs/hackathon-build/build-notes.md) record the collaboration, milestone decisions, scope cuts, bugs, verification results, and submission-relevant Codex contributions.
 
 ## Build documentation
 

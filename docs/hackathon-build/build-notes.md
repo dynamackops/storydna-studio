@@ -402,3 +402,22 @@ Running log for product decisions, scope cuts, bugs, verification, and submissio
 - Traced the production failure to an alias/provider-resolution boundary and applied the narrowest documented model configuration fix.
 - Added regression coverage so a stale deployment environment value cannot reintroduce the same alias error.
 - Turned the repository landing page into an accurate product narrative while preserving explicit MVP limitations.
+
+## 2026-07-21 — Codex collaboration documentation
+
+### Decisions made
+
+- Expanded the README's brief tooling acknowledgement into an explicit collaboration narrative for Devpost judging.
+- Separated Jasmine's product, creative, prioritization, testing, and design decisions from Codex's planning, architecture, implementation, verification, debugging, deployment, and documentation acceleration.
+- Documented GPT-5.6 as the application's structured runtime rather than conflating it with Codex's software-development role.
+- Added the primary build thread ID to the public README for easy submission reference.
+
+### Verification results
+
+- Confirmed the primary StoryDNA build thread title, workspace, and ID through the local Codex thread index.
+- Primary build thread ID: `019f7433-c3d4-7173-9c9a-a45375b897d4`.
+
+### Codex contributions useful for Devpost
+
+- Produced a concrete, evidence-backed account of the human–Codex working loop instead of a generic “built with AI” claim.
+- Connected product decisions and implementation outcomes to the milestone history judges can verify in the repository.
