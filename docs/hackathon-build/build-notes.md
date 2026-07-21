@@ -332,6 +332,7 @@ Running log for product decisions, scope cuts, bugs, verification, and submissio
 
 - The first Netlify deploy cloned a repository with no root `package.json`. Local inspection confirmed this project has the file committed but has no Git remote, so Netlify was connected to a different or empty repository.
 - The attempted `git remote add` and push were run from the macOS home directory and used the placeholder GitHub URL literally, producing `not a git repository` before any remote could be configured.
+- Netlify initially treated `netlify/functions/story.test.ts` as a second serverless function named `story.test`, then rejected the dot in that function name. Moved the test beside the server tests so only `story.mts` is deployed.
 
 ### Verification results
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { analysisResponseSchema } from "../../shared/schemas";
-import storyApi from "./story.mts";
+import { analysisResponseSchema } from "../shared/schemas";
+import storyApi from "../netlify/functions/story.mts";
 
 const previousKey = process.env.OPENAI_API_KEY;
 const previousModel = process.env.OPENAI_MODEL;
